@@ -3,21 +3,23 @@ import { StyleSheet, Text, View, Button, TouchableOpacity, Alert, ScrollView } f
 import { useEffect, useState } from 'react';
 import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 
 export default function App() {
     const [preloadedSounds, setPreloadedSounds] = useState([
-        require('./bop.m4a'),
-        require('./melody.m4a'),
-        require('./samp.m4a'),
-        require('./sound.m4a'),
-        require('./tone.m4a'),
+        { uri: require('./bop.m4a'), name: 'Bop' },
+        { uri: require('./melody.m4a'), name: 'Melody' },
+        { uri: require('./samp.m4a'), name: 'Sample' },
+        { uri: require('./sound.m4a'), name: 'Sound' },
+        { uri: require('./tone.m4a'), name: 'Tone' },
     ]);
+
     const [recordedSounds, setRecordedSounds] = useState([]);
     const [recording, setRecording] = useState(null);
     const [isRecording, setIsRecording] = useState(false);
     const [permissionsResponse, requestPermission] = Audio.usePermissions();
 
-    const startRecording = async () => { // start recording
+    const startRecording = async () => {
         try {
             if (permissionsResponse.status !== 'granted') {
                 console.log('Requesting permissions.');
@@ -46,7 +48,18 @@ export default function App() {
             if (recording) {
                 await recording.stopAndUnloadAsync();
                 const uri = recording.getURI();
-                setRecordedSounds([...recordedSounds, uri]);
+                const shouldSave = await promptToSaveRecording(uri); // Prompt to save the recording
+                if (shouldSave) {
+                    const recordingName = await promptForRecordingName(); // Prompt for the name of the recording
+                    if (recordingName) {
+                        // Save the recording with the provided name
+                        await saveRecording(uri, recordingName);
+                    } else {
+                        console.log('Recording not saved: No name provided');
+                    }
+                } else {
+                    console.log('Recording not saved');
+                }
                 setRecording(null);
                 setIsRecording(false);
                 console.log('Recording stopped and stored at ', uri);
@@ -56,21 +69,67 @@ export default function App() {
         }
     };
 
-    const playSound = async (sound) => { // play sound, preloaded or recorded
+    const promptToSaveRecording = async (uri) => {
+        return new Promise((resolve) => {
+            Alert.alert(
+                'Save Recording?',
+                'Do you want to save this recording?',
+                [
+                    { text: 'No', onPress: () => resolve(false) },
+                    { text: 'Yes', onPress: () => resolve(true) },
+                ],
+                { cancelable: false }
+            );
+        });
+    };
+
+    const promptForRecordingName = async () => {
+        return new Promise((resolve) => {
+            Alert.prompt(
+                'Recording Name',
+                'Please enter the name for the recording:',
+                [
+                    { text: 'Cancel', onPress: () => resolve(null), style: 'cancel' },
+                    { text: 'Save', onPress: (input) => resolve(input) },
+                ],
+                'plain-text',
+                ''
+            );
+        });
+    };
+
+    const saveRecording = async (uri, recordingName) => {
+        // Implement the logic to save the recording with the provided name
+        console.log(`Recording "${recordingName}" saved at ${uri}`);
+        setRecordedSounds([...recordedSounds, { uri, name: recordingName }]);
+    };
+
+
+    const playSound = async (sound) => {
         const { sound: playbackSound } = await Audio.Sound.createAsync(sound);
         await playbackSound.playAsync();
     };
 
     const playPreloadedSound = async (index) => { // play preloaded sound
-        const sound = preloadedSounds[index];
+    try {
+        const sound = preloadedSounds[index].uri;
         await playSound(sound);
-    };
+    } catch (error) {
+        console.error('Failed to play preloaded sound: ', error);
+    }
+};
 
-    const playRecordedSound = async (index) => { // play recorded sound
+const playRecordedSound = async (index) => { // play recorded sound
+    try {
         const sound = recordedSounds[index];
         await playSound({ uri: sound });
-    };
+    } catch (error) {
+        console.error('Failed to play recorded sound: ', error);
+    }
+};
 
+
+    // user can add sound from files on device
     const pickSound = async () => {
         try {
             const { uri } = await DocumentPicker.getDocumentAsync({
@@ -79,14 +138,20 @@ export default function App() {
             });
 
             if (uri) {
-                setRecordedSounds([...recordedSounds, uri]);
+                const name = uri.substring(uri.lastIndexOf('/') + 1);
+                setRecordedSounds([...recordedSounds, { uri, name }]);
             }
         } catch (error) {
             console.error('Failed to pick sound: ', error);
             Alert.alert('Error', 'Failed to pick sound from file.');
         }
     };
-
+     // allows user to delete sound
+    const deleteSound = (index) => {
+        const newSounds = [...recordedSounds];
+        newSounds.splice(index, 1);
+        setRecordedSounds(newSounds);
+    };
 
     useEffect(() => {
         return () => {
@@ -94,25 +159,25 @@ export default function App() {
                 recording.stopAndUnloadAsync();
             }
         };
-    }, [recording]); // Added recording dependency to useEffect
+    }, [recording]);
 
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Soundboard App</Text>
             <ScrollView contentContainerStyle={styles.gridContainer}>
-                {/* Render preloaded sounds */}
-                {preloadedSounds.map((sound, index) => (
+                {preloadedSounds.map((sound, index) => ( // preloaded sounds 
                     <TouchableOpacity key={index} style={styles.soundButton} onPress={() => playPreloadedSound(index)}>
-                        <Text style={styles.buttonText}>Preloaded Sound {index + 1}</Text>
+                        <Text style={styles.buttonText}>{sound.name}</Text>
                     </TouchableOpacity>
                 ))}
-                {/* Render recorded sounds */}
                 {recordedSounds.map((sound, index) => (
                     <TouchableOpacity key={index + preloadedSounds.length} style={styles.soundButton} onPress={() => playRecordedSound(index)}>
-                        <Text style={styles.buttonText}>Recorded Sound {index + 1}</Text>
+                        <Text style={styles.buttonText}>{sound.name}</Text>
+                        <TouchableOpacity style={styles.deleteButton} onPress={() => deleteSound(index)}>
+                            <Text style={styles.deleteButtonText}>X</Text>
+                        </TouchableOpacity>
                     </TouchableOpacity>
                 ))}
-                {/* Add Sound button */}
                 <TouchableOpacity style={[styles.soundButton, styles.addSoundButton]} onPress={pickSound}>
                     <Text style={styles.buttonText}>Add Sound</Text>
                 </TouchableOpacity>
@@ -133,6 +198,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         alignItems: 'center',
         justifyContent: 'center',
+        paddingHorizontal: 20, // Add horizontal padding
+        paddingVertical: 40,   // Add vertical padding
     },
     title: {
         fontSize: 24,
@@ -160,6 +227,21 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
     },
+    deleteButton: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        backgroundColor: 'red',
+        borderRadius: 10,
+        width: 20,
+        height: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    deleteButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
     buttonContainer: {
         marginTop: 20,
     },
@@ -171,4 +253,5 @@ const styles = StyleSheet.create({
         marginTop: 10,
     },
 });
+
 
