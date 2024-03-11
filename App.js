@@ -119,14 +119,17 @@ export default function App() {
     }
 };
 
-const playRecordedSound = async (index) => { // play recorded sound
-    try {
-        const sound = recordedSounds[index];
-        await playSound({ uri: sound });
-    } catch (error) {
-        console.error('Failed to play recorded sound: ', error);
-    }
-};
+    const playRecordedSound = async (index) => {
+        try {
+            const sound = recordedSounds[index].uri; // Get the URI of the recorded sound
+            await playSound({ uri: sound });
+        } catch (error) {
+            console.error('Failed to play recorded sound: ', error);
+            Alert.alert('Error', 'Failed to play recorded sound.');
+        }
+    };
+
+
 
 
     // user can add sound from files on device
