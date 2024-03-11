@@ -135,20 +135,25 @@ export default function App() {
     // user can add sound from files on device
     const pickSound = async () => {
         try {
-            const { uri } = await DocumentPicker.getDocumentAsync({
+            const { type, uri } = await DocumentPicker.getDocumentAsync({
                 type: 'audio/*',
                 copyToCacheDirectory: false
             });
 
-            if (uri) {
+            if (type === 'success' && uri) {
                 const name = uri.substring(uri.lastIndexOf('/') + 1);
                 setRecordedSounds([...recordedSounds, { uri, name }]);
+                console.log('Sound added:', name); // Log the name of the added sound
+            } else {
+                console.log('No audio file selected');
             }
         } catch (error) {
             console.error('Failed to pick sound: ', error);
             Alert.alert('Error', 'Failed to pick sound from file.');
         }
     };
+
+
      // allows user to delete sound
     const deleteSound = (index) => {
         const newSounds = [...recordedSounds];
