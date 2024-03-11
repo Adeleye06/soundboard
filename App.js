@@ -6,24 +6,24 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 
 export default function App() {
-    const [preloadedSounds, setPreloadedSounds] = useState([
-        { uri: require('./bop.m4a'), name: 'Bop' },
-        { uri: require('./melody.m4a'), name: 'Melody' },
-        { uri: require('./samp.m4a'), name: 'Sample' },
-        { uri: require('./sound.m4a'), name: 'Sound' },
-        { uri: require('./tone.m4a'), name: 'Tone' },
+    const [loadedSounds, setloadedSounds] = useState([
+        { uri: require('./sound1.m4a'), name: 'Sound1' },
+        { uri: require('./sound2.m4a'), name: 'Sound2' },
+        { uri: require('./sound3.m4a'), name: 'Sound3' },
+        { uri: require('./sound4.m4a'), name: 'Sound4' },
+        { uri: require('./sound5.m4a'), name: 'Sound5' },
     ]);
 
-    const [recordedSounds, setRecordedSounds] = useState([]);
+    const [savedSounds, setSavedSounds] = useState([]);
     const [recording, setRecording] = useState(null);
     const [isRecording, setIsRecording] = useState(false);
-    const [permissionsResponse, requestPermission] = Audio.usePermissions();
+    const [permissionsReply, askPermission] = Audio.usePermissions();
 
-    const startRecording = async () => {
+    const initiateRecording = async () => {
         try {
-            if (permissionsResponse.status !== 'granted') {
-                console.log('Requesting permissions.');
-                await requestPermission();
+            if (permissionsReply.status !== 'granted') {
+                console.log('Asking for permissions.');
+                await askPermission();
             }
 
             await Audio.setAudioModeAsync({
@@ -32,44 +32,44 @@ export default function App() {
             });
 
             console.log('Starting recording...');
-            const recordingObject = new Audio.Recording();
-            await recordingObject.prepareToRecordAsync(Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY);
-            setRecording(recordingObject);
+            const recordingObj = new Audio.Recording();
+            await recordingObj.prepareToRecordAsync(Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY);
+            setRecording(recordingObj);
             setIsRecording(true);
-            await recordingObject.startAsync();
-            console.log('...recording');
-        } catch (error) {
-            console.error('Failed to start recording: ', error);
+            await recordingObj.startAsync();
+            console.log('...recording started');
+        } catch (err) {
+            console.error('Error starting recording: ', err);
         }
     };
 
-    const stopRecording = async () => { //stop recording
+    const endRecording = async () => { 
         try {
             if (recording) {
                 await recording.stopAndUnloadAsync();
                 const uri = recording.getURI();
-                const shouldSave = await promptToSaveRecording(uri); // Prompt to save the recording
-                if (shouldSave) {
-                    const recordingName = await promptForRecordingName(); // Prompt for the name of the recording
+                const allowSave = await SaveRecording(uri); 
+                if (allowSave) {
+                    const recordingName = await getRecordingName(); 
                     if (recordingName) {
-                        // Save the recording with the provided name
+                        
                         await saveRecording(uri, recordingName);
                     } else {
-                        console.log('Recording not saved: No name provided');
+                        console.log('can not think of what to type here but you know what it is if you see it');
                     }
                 } else {
-                    console.log('Recording not saved');
+                    console.log('Recording was not saved');
                 }
                 setRecording(null);
                 setIsRecording(false);
-                console.log('Recording stopped and stored at ', uri);
+                console.log('Recording ended and stored at ', uri);
             }
-        } catch (errorEvent) {
-            console.error('Failed to stop recording: ', errorEvent);
+        } catch (err) {
+            console.error('Failed to stop recording: ', err);
         }
     };
 
-    const promptToSaveRecording = async (uri) => {
+    const SaveRecording = async (uri) => {
         return new Promise((resolve) => {
             Alert.alert(
                 'Save Recording?',
@@ -83,7 +83,7 @@ export default function App() {
         });
     };
 
-    const promptForRecordingName = async () => {
+    const getRecordingName = async () => {
         return new Promise((resolve) => {
             Alert.prompt(
                 'Recording Name',
@@ -99,32 +99,32 @@ export default function App() {
     };
 
     const saveRecording = async (uri, recordingName) => {
-        // Implement the logic to save the recording with the provided name
+        
         console.log(`Recording "${recordingName}" saved at ${uri}`);
-        setRecordedSounds([...recordedSounds, { uri, name: recordingName }]);
+        setSavedSounds([...savedSounds, { uri, name: recordingName }]);
     };
 
 
-    const playSound = async (sound) => {
-        const { sound: playbackSound } = await Audio.Sound.createAsync(sound);
+    const playSound = async (audio) => {
+        const { sound: playbackSound } = await Audio.Sound.createAsync(audio);
         await playbackSound.playAsync();
     };
 
-    const playPreloadedSound = async (index) => { // play preloaded sound
+    const playloadedSound = async (index) => { 
     try {
-        const sound = preloadedSounds[index].uri;
-        await playSound(sound);
-    } catch (error) {
-        console.error('Failed to play preloaded sound: ', error);
+        const audio = loadedSounds[index].uri;
+        await playSound(audio);
+    } catch (err) {
+        console.error('loaded sounds could not play: ', err);
     }
 };
 
     const playRecordedSound = async (index) => {
         try {
-            const sound = recordedSounds[index].uri; // Get the URI of the recorded sound
-            await playSound({ uri: sound });
-        } catch (error) {
-            console.error('Failed to play recorded sound: ', error);
+            const audio = savedSounds[index].uri; 
+            await playSound({ uri: audio });
+        } catch (err) {
+            console.error('Failed to play recorded sound: ', err);
             Alert.alert('Error', 'Failed to play recorded sound.');
         }
     };
@@ -132,8 +132,8 @@ export default function App() {
 
 
 
-    // user can add sound from files on device
-    const pickSound = async () => {
+  
+    const selectSound = async () => {
         try {
             const { type, uri } = await DocumentPicker.getDocumentAsync({
                 type: 'audio/*',
@@ -142,23 +142,22 @@ export default function App() {
 
             if (type === 'success' && uri) {
                 const name = uri.substring(uri.lastIndexOf('/') + 1);
-                setRecordedSounds([...recordedSounds, { uri, name }]);
-                console.log('Sound added:', name); // Log the name of the added sound
+                setSavedSounds([...savedSounds, { uri, name }]);
+                console.log('Sound added:', name); 
             } else {
                 console.log('No audio file selected');
             }
-        } catch (error) {
-            console.error('Failed to pick sound: ', error);
+        } catch (err) {
+            console.error('Failed to pick sound: ', err);
             Alert.alert('Error', 'Failed to pick sound from file.');
         }
     };
 
 
-     // allows user to delete sound
     const deleteSound = (index) => {
-        const newSounds = [...recordedSounds];
-        newSounds.splice(index, 1);
-        setRecordedSounds(newSounds);
+        const newAudio = [...savedSounds];
+        newAudio.splice(index, 1);
+        setSavedSounds(newAudio);
     };
 
     useEffect(() => {
@@ -171,28 +170,28 @@ export default function App() {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Soundboard App</Text>
+            <Text style={styles.title}>My Soundboard</Text>
             <ScrollView contentContainerStyle={styles.gridContainer}>
-                {preloadedSounds.map((sound, index) => ( // preloaded sounds 
-                    <TouchableOpacity key={index} style={styles.soundButton} onPress={() => playPreloadedSound(index)}>
+                {loadedSounds.map((sound, index) => ( 
+                    <TouchableOpacity key={index} style={styles.soundButton} onPress={() => playloadedSound(index)}>
                         <Text style={styles.buttonText}>{sound.name}</Text>
                     </TouchableOpacity>
                 ))}
-                {recordedSounds.map((sound, index) => (
-                    <TouchableOpacity key={index + preloadedSounds.length} style={styles.soundButton} onPress={() => playRecordedSound(index)}>
+                {savedSounds.map((sound, index) => (
+                    <TouchableOpacity key={index + loadedSounds.length} style={styles.soundButton} onPress={() => playRecordedSound(index)}>
                         <Text style={styles.buttonText}>{sound.name}</Text>
                         <TouchableOpacity style={styles.deleteButton} onPress={() => deleteSound(index)}>
                             <Text style={styles.deleteButtonText}>X</Text>
                         </TouchableOpacity>
                     </TouchableOpacity>
                 ))}
-                <TouchableOpacity style={[styles.soundButton, styles.addSoundButton]} onPress={pickSound}>
-                    <Text style={styles.buttonText}>Add Sound</Text>
+                <TouchableOpacity style={[styles.soundButton, styles.addSoundButton]} onPress={selectSound}>
+                    <Text style={styles.buttonText}>Add Another Sound</Text>
                 </TouchableOpacity>
             </ScrollView>
             <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.button} onPress={isRecording ? stopRecording : startRecording}>
-                    <Text style={styles.buttonText}>{isRecording ? 'Stop Recording' : 'Start Recording'}</Text>
+                <TouchableOpacity style={styles.button} onPress={isRecording ? endRecording : initiateRecording}>
+                    <Text style={styles.buttonText}>{isRecording ? 'End Recording' : 'Initiate Recording'}</Text>
                 </TouchableOpacity>
             </View>
             <StatusBar style="auto" />
@@ -202,64 +201,86 @@ export default function App() {
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
-        backgroundColor: '#fff',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 20, // Add horizontal padding
-        paddingVertical: 40,   // Add vertical padding
+      flex: 1,
+      backgroundColor: '#F0F0F0', 
+      alignItems: 'center',
+      justifyContent: 'flex-start', 
+      paddingTop: 50, 
     },
     title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 20,
+      fontSize: 28,
+      fontWeight: '600',
+      color: '#333', 
+      marginBottom: 30,
     },
     gridContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'center',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-around',
+      width: '100%', 
     },
     soundButton: {
-        backgroundColor: '#007AFF',
-        padding: 20,
-        margin: 10,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '40%',
+      backgroundColor: '#008B8B', 
+      paddingVertical: 15,
+      paddingHorizontal: 15,
+      margin: 5,
+      borderRadius: 20, 
+      alignItems: 'center',
+      justifyContent: 'center',
+      elevation: 3, 
+      shadowColor: '#000', 
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      minWidth: '45%', 
+      textAlign: 'center',
     },
     addSoundButton: {
-        backgroundColor: '#4CAF50',
+      backgroundColor: '#6A5ACD', 
     },
     buttonText: {
-        color: '#fff',
-        fontSize: 16,
+      color: '#FFFFFF', 
+      fontSize: 14,
+      fontWeight: 'bold',
     },
     deleteButton: {
-        position: 'absolute',
-        top: 10,
-        right: 10,
-        backgroundColor: 'red',
-        borderRadius: 10,
-        width: 20,
-        height: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
+      position: 'absolute',
+      top: -10,
+      right: -10,
+      backgroundColor: '#DC143C', 
+      borderRadius: 15,
+      width: 30,
+      height: 30,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     deleteButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
+      color: '#FFFFFF',
+      fontSize: 18,
+      fontWeight: 'bold',
+      lineHeight: 30, 
     },
     buttonContainer: {
-        marginTop: 20,
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      width: '100%',
+      marginTop: 20,
     },
     button: {
-        backgroundColor: '#007AFF',
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 5,
-        marginTop: 10,
+      backgroundColor: '#20B2AA',
+      paddingVertical: 12,
+      paddingHorizontal: 25,
+      borderRadius: 25, 
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
     },
-});
-
-
+  });
